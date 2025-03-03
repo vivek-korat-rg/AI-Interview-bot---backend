@@ -46,8 +46,20 @@ class Interviewer:
         below_average, average, good = self.Extract_user_lev(Evaluation)
 
         if average:
+            print("AVEERAGE")
             number_of_questions = len(Evaluation["Questions"])
             total_score = Evaluation['Summary']['Total_Score']
             context_questions = Q_gen.Context_Question(average, selected_role)
             return context_questions, total_score, number_of_questions
+        if below_average:
+            print("BELOW AVERAGE")
+            number_of_questions = len(Evaluation["Questions"])
+            total_score = Evaluation['Summary']['Total_Score']
+            return None, total_score, number_of_questions
+        if good:
+            print("GOOD")
+            number_of_questions = len(Evaluation["Questions"])
+            total_score = Evaluation['Summary']['Total_Score']
+            return None, total_score, number_of_questions
+
         return None

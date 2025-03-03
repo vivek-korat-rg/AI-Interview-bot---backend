@@ -18,7 +18,7 @@ class JobRoleView(APIView):
             return Response({"job_roles": job_roles.data})
         except Exception as e:
             logger.error(f"Internal Server Error: {e}")
-            return Response({"error": "Internal Server Error"}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+            return Response({"message": "Internal Server Error"}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 
 class CandidateView(APIView):
@@ -29,7 +29,7 @@ class CandidateView(APIView):
             return Response({"candidates": serialized_candidates.data})
         except Exception as e:
             logger.error(f"Internal Server Error: {e}")
-            return Response({"error": "Internal Server Error"}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+            return Response({"message": "Internal Server Error"}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
     def post(self, request):
         try:
@@ -43,7 +43,7 @@ class CandidateView(APIView):
             return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
         except Exception as e:
             logger.error(f"Internal Server Error: {e}")
-            return Response({"error": "Internal Server Error"}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+            return Response({"message": "Internal Server Error"}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 
 class RoleBasedQuestionView(APIView):
@@ -74,7 +74,7 @@ class RoleBasedQuestionView(APIView):
             return Response({"questions": serialized_questions.data}, status=status.HTTP_200_OK)
         except Exception as e:
             logger.error(f"Internal Server Error: {e}")
-            return Response({"error": "Internal Server Error"}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+            return Response({"message": "Internal Server Error"}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 
 class ResumeBasedQuestionView(APIView):
@@ -99,14 +99,14 @@ class ResumeBasedQuestionView(APIView):
             return Response({"questions": serialized_questions.data}, status=status.HTTP_200_OK)
         except Exception as e:
             logger.error(f"Internal Server Error: {e}")
-            return Response({"error": "Internal Server Error"}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+            return Response({"message": "Internal Server Error"}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 
 class FollowUpQuestionView(APIView):
     def get(self, request, candidate_id):
         try:
             if not candidate_id:
-                return Response({"error": "Candidate ID is required"}, status=status.HTTP_400_BAD_REQUEST)
+                return Response({"message": "Candidate ID is required"}, status=status.HTTP_400_BAD_REQUEST)
 
             try:
                 candidate = Candidate.objects.get(id=candidate_id)
@@ -117,14 +117,12 @@ class FollowUpQuestionView(APIView):
                 question_type=Question.FOLLOW_UP, candidate=candidate
             )
 
-            if not questions:
-                return Response({"message": "No follow-up questions found for the candidate"}, status=status.HTTP_404_NOT_FOUND)
-
             serialized_questions = QuestionSerializer(questions, many=True)
             return Response({"questions": serialized_questions.data}, status=status.HTTP_200_OK)
+
         except Exception as e:
             logger.error(f"Internal Server Error: {e}")
-            return Response({"error": "Internal Server Error"}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+            return Response({"message": "Internal Server Error"}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 
 class SubmitAnswer(APIView):
@@ -132,12 +130,12 @@ class SubmitAnswer(APIView):
         try:
             first_question_ans = request.data.get("first_question_ans")
             candidate_id = request.data.get("candidate_id")
-
+            print(request.data)
             if first_question_ans:
                 try:
                     candidate = Candidate.objects.get(id=candidate_id)
                 except Candidate.DoesNotExist:
-                    return Response({"error": "Candidate not found"}, status=status.HTTP_404_NOT_FOUND)
+                    return Response({"message": "Candidate not found"}, status=status.HTTP_404_NOT_FOUND)
 
                 resume = candidate.resume.path
                 job_role = candidate.job_role.name
@@ -156,7 +154,7 @@ class SubmitAnswer(APIView):
             return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
         except Exception as e:
             logger.error(f"Internal Server Error: {e}")
-            return Response({"error": "Internal Server Error"}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+            return Response({"message": "Internal Server Error"}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 
 class GenerateFollowUpQuestions(APIView):
@@ -165,47 +163,48 @@ class GenerateFollowUpQuestions(APIView):
             candidate_id = request.data.get("candidate_id")
 
             if not candidate_id:
-                return Response({"error": "Candidate ID is required"}, status=status.HTTP_400_BAD_REQUEST)
+                return Response({"message": "Candidate ID is required"}, status=status.HTTP_400_BAD_REQUEST)
 
             try:
                 candidate = Candidate.objects.get(id=candidate_id)
             except Candidate.DoesNotExist:
-                return Response({"error": "Candidate not found"}, status=status.HTTP_404_NOT_FOUND)
+                return Response({"message": "Candidate not found"}, status=status.HTTP_404_NOT_FOUND)
 
             job_role = candidate.job_role.name
 
             follow_up_questions = Question.objects.filter(
                 question_type=Question.FOLLOW_UP, candidate=candidate
             )
-            if follow_up_questions.exists():
-                return Response({"message": "Follow-up questions already generated"}, status=status.HTTP_200_OK)
 
+            if follow_up_questions.exists():
+                follow_up_questions.delete()
             context = request.data.get("context")
             if not context:
-                return Response({"error": "Context is required"}, status=status.HTTP_400_BAD_REQUEST)
+                return Response({"message": "Context is required"}, status=status.HTTP_400_BAD_REQUEST)
 
             generate_follow_up_questions.delay(context, job_role, candidate_id)
 
             return Response({"message": "Follow-up questions generated"}, status=status.HTTP_201_CREATED)
         except Exception as e:
             logger.error(f"Internal Server Error: {e}")
-            return Response({"error": "Internal Server Error"}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+            print(e)
+            return Response({"message": "Internal Server Error"}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 
 class EvaluateScore(APIView):
-    def get(self, request, candidate_id):
+    def post(self, request, candidate_id):
         try:
             if not candidate_id:
-                return Response({"error": "Candidate ID is required"}, status=status.HTTP_400_BAD_REQUEST)
+                return Response({"message": "Candidate ID is required"}, status=status.HTTP_400_BAD_REQUEST)
 
             try:
                 candidate = Candidate.objects.get(id=candidate_id)
             except Candidate.DoesNotExist:
-                return Response({"error": "Candidate not found"}, status=status.HTTP_404_NOT_FOUND)
+                return Response({"message": "Candidate not found"}, status=status.HTTP_404_NOT_FOUND)
 
             context = request.data.get("context")
             if not context:
-                return Response({"error": "Context is required"}, status=status.HTTP_400_BAD_REQUEST)
+                return Response({"message": "Context is required"}, status=status.HTTP_400_BAD_REQUEST)
 
             evaluation = evaluate_answers(context)
             total_evaluation_score = evaluation['Summary']['Total_Score']
@@ -222,4 +221,4 @@ class EvaluateScore(APIView):
             return Response({"score": candidate_score.total_evaluation_score}, status=status.HTTP_200_OK)
         except Exception as e:
             logger.error(f"Internal Server Error: {e}")
-            return Response({"error": "Internal Server Error"}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+            return Response({"message": "Internal Server Error"}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
